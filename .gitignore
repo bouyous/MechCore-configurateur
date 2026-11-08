@@ -1,0 +1,8 @@
+/target/
+/data/
+/preview.png
+/.env
+/.env.*
+*.pem
+*.pfx
+*.key
