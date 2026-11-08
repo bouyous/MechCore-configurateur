@@ -21,9 +21,11 @@ Projet indépendant : il ne s’agit pas d’un outil officiel MeshCore, Express
 
 ## Installer et lancer sous Windows
 
-La version actuelle utilise Windows PowerShell pour les consultations GitHub. Les autres systèmes ne sont pas validés.
+L’exécutable pour Windows 64 bits (x64) est disponible dans la section [Télécharger](#télécharger) en bas de cette page. Lancez-le par double-clic. Les profils et compilations sont enregistrés dans `%LOCALAPPDATA%\MeshStudio`.
 
-Pour construire l’application, installer Rust avec Cargo et les outils de compilation C++ Windows nécessaires à Rust. Pour télécharger et compiler les firmwares, installer aussi Git et PlatformIO Core ; `git` et `pio` doivent être accessibles dans le PATH. Le chemin de l’exécutable PlatformIO est modifiable dans « Compiler et flasher ». Une connexion Internet est nécessaire pour les téléchargements ; les pilotes USB dépendent de la carte.
+Pour télécharger les sources et compiler ou flasher un firmware, installez [Git](https://git-scm.com/install/windows) et [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html). Ajoutez `git` et `pio` au PATH, ou renseignez le chemin complet de PlatformIO dans « Compiler et flasher ». Les pilotes USB dépendent de la carte. Une connexion Internet est nécessaire pour les téléchargements.
+
+Pour compiler le configurateur depuis le code source, installez Rust avec Cargo et les outils de compilation C++ Windows.
 
 Dans le dossier contenant `Cargo.toml` :
 
@@ -32,14 +34,14 @@ cargo build --release --locked
 cargo run --release --locked
 ```
 
-L’exécutable est produit dans `target/release/mesh-studio.exe`. Le dossier `data/` est créé dans le dossier du projet enregistré lors de la compilation : cette version doit donc être utilisée avec ce dossier accessible en écriture. Déplacer uniquement l’exécutable ne constitue pas une installation portable.
+L’exécutable est produit dans `target/release/mesh-studio.exe`.
 
 ## Préparer un firmware
 
 1. Dans « Configurateur », actualiser les versions, choisir la version et le type de firmware, puis télécharger les sources. Un dossier MeshCore local peut aussi être importé.
 2. Choisir la carte et sa cible, puis régler les options souhaitées.
 3. Si des périphériques sont utilisés, vérifier le schéma constructeur et les broches. Appliquer les fonctions intégrées souhaitées ; confirmer le câblage lorsqu’il est demandé.
-4. Dans « Compiler et flasher », vérifier le récapitulatif et lancer la compilation. Les fichiers `.bin`, `.uf2` ou `.hex` disponibles et le reçu `build.json` sont copiés dans `data/builds/<identifiant>/firmware/`.
+4. Dans « Compiler et flasher », vérifier le récapitulatif et lancer la compilation. Les fichiers `.bin`, `.uf2` ou `.hex` disponibles et le reçu `build.json` sont copiés dans `%LOCALAPPDATA%\MeshStudio\builds\<identifiant>\firmware`.
 5. Sauvegarder les données de la carte, vérifier que la compilation lui correspond, indiquer le port série et confirmer avant de flasher. L’option d’effacement supprime les données de l’appareil.
 
 Un profil JSON décrit une configuration : ce n’est pas un firmware à flasher.
@@ -90,7 +92,6 @@ clang++ -std=c++17 -DESP32 -I tests/bot_stubs tests/bot_runtime.cpp -o target/bo
 - `src/hardware.rs` : catalogue, brochage et vérification des broches.
 - `src/atelier_bot.h` : bot embarqué facultatif.
 - `tests/` : contrôle natif C++ et ses substituts matériels ; les tests Rust se trouvent aussi dans les modules `src/`.
-- `data/` : profils, cache de versions, sources et compilations locales ; exclu du dépôt.
 
 ## Mettre le projet sur GitHub
 
@@ -99,3 +100,9 @@ Utiliser le contenu de ce dossier `app/` comme racine du dépôt : inclure `src/
 Le configurateur est distribué sous [licence MIT](LICENSE). Les sources MeshCore téléchargées conservent leurs propres licences. Toute redistribution de firmware doit en respecter les conditions. [MeshCore](https://github.com/meshcore-dev/MeshCore) est le projet amont. LoRa est une marque de Semtech.
 
 Pour contribuer, décrire le problème ou la modification, préciser la carte et la version concernées, et joindre les résultats des tests sans données privées. Une compilation réussie ne remplace pas un essai matériel.
+
+## Télécharger
+
+**[Télécharger Mesh Studio v0.1.0 pour Windows x64 (.exe)](https://github.com/bouyous/MechCore-configurateur/releases/download/v0.1.0/Mesh-Studio-v0.1.0-windows-x64.exe)**
+
+Version expérimentale. L’exécutable Windows est dépourvu de signature Authenticode. La somme SHA-256 est disponible sur la [page de la version v0.1.0](https://github.com/bouyous/MechCore-configurateur/releases/tag/v0.1.0).

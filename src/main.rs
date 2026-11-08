@@ -1,3 +1,5 @@
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use eframe::egui::{self, Color32, RichText};
 use std::{path::Path, sync::mpsc::{self, Receiver}};
 mod firmware;

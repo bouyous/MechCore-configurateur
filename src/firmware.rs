@@ -146,7 +146,13 @@ impl Profile {
         Ok(())
     }
 }
-pub fn root() -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data") }
+pub fn root() -> PathBuf {
+    if let Some(local_data) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).filter(|path| path.is_absolute()) {
+        return local_data.join("MeshStudio");
+    }
+    std::env::current_exe().ok().and_then(|path| path.parent().map(Path::to_owned))
+        .unwrap_or_else(std::env::temp_dir).join("MeshStudio")
+}
 pub fn load<T: for<'a> Deserialize<'a>>(path: &Path) -> Option<T> { serde_json::from_slice(&fs::read(path).ok()?).ok() }
 pub fn save<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     if let Some(p) = path.parent() { fs::create_dir_all(p).map_err(|e| e.to_string())?; }
