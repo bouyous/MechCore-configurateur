@@ -231,6 +231,7 @@ pub enum Event {
     Sources(PathBuf, Vec<String>),
     Pinout(crate::hardware::Pinout),
     Built(Build),
+    Expert(crate::expert::Report),
     Done(std::result::Result<String, String>),
 }
 impl Profile {
@@ -272,7 +273,7 @@ pub fn powershell() -> Result<Command> {
     command(path.to_str().ok_or("Chemin de PowerShell invalide.")?)
 }
 
-fn command(executable: &str) -> Result<Command> {
+pub(crate) fn command(executable: &str) -> Result<Command> {
     let executable = tool_path(executable)?;
     let mut c = Command::new(executable);
     #[cfg(windows)] c.creation_flags(0x08000000);

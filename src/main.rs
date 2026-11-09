@@ -4,6 +4,7 @@ use eframe::egui::{self, Color32, RichText};
 use std::{path::Path, sync::mpsc::{self, Receiver}};
 mod firmware;
 mod hardware;
+mod expert;
 use firmware::{BotMessage, Build, Event, Gpio, PinMode, Profile, PublicChannel, Visibility};
 
 const ACCENT: Color32 = Color32::from_rgb(166, 205, 108);
@@ -53,6 +54,9 @@ struct Studio {
     built: Option<Build>,
     flash_confirmed: bool,
     build_confirmed: bool,
+    expert_question: String,
+    expert_model: String,
+    expert_report: Option<expert::Report>,
     screenshot: Option<std::path::PathBuf>,
     frames: u32,
 }
@@ -64,6 +68,7 @@ impl Default for Studio {
         Self { profile, environments, board_search: String::new(), hardware_search: String::new(), pinout, versions: firmware::load(&firmware::root().join("versions.json")).unwrap_or_default(),
             tab: 0, status: "Prêt à configurer votre installation.".into(), logs: Vec::new(), task: None,
             built: firmware::load(&firmware::root().join("last_build.json")), flash_confirmed: false, build_confirmed: false,
+            expert_question: String::new(), expert_model: expert::DEFAULT_MODEL.into(), expert_report: None,
             screenshot: std::env::args_os().skip_while(|arg| arg != "--screenshot").nth(1).map(Into::into), frames: 0 }
     }
 }
@@ -88,6 +93,7 @@ impl Studio {
                 }
                 Event::Built(build) => { self.built = Some(build); self.flash_confirmed = false; }
                 Event::Pinout(pinout) => self.pinout = pinout,
+                Event::Expert(report) => self.expert_report = Some(report),
                 Event::Done(result) => {
                     self.status = result.unwrap_or_else(|e| format!("Échec : {e}")); self.task = None;
                 }
@@ -562,6 +568,60 @@ impl Studio {
                         });
 
     }
+    fn expert(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Mode expert");
+        ui.label("Recherchez une fonction existante dans les sources MeshCore chargées. Le modèle local propose des mots-clés et explique les extraits trouvés.");
+        ui.label(RichText::new("Lecture seule. Vérifiez les références avant de modifier ou compiler un firmware.").color(MUTED));
+        ui.horizontal_wrapped(|ui| {
+            ui.hyperlink_to("Installer Ollama", "https://docs.ollama.com/windows");
+            ui.hyperlink_to("Désactiver le cloud Ollama", "https://docs.ollama.com/faq#how-do-i-disable-ollamas-cloud-features");
+        });
+        ui.label("Modèle Ollama installé sur cet ordinateur");
+        ui.add(egui::TextEdit::singleline(&mut self.expert_model).char_limit(128));
+        ui.label("Question sur le firmware");
+        ui.add(egui::TextEdit::multiline(&mut self.expert_question).char_limit(2_000)
+            .hint_text("Par exemple : où se trouve la mise à jour OTA sur un répéteur ESP32 ?")
+            .desired_rows(3).desired_width(f32::INFINITY));
+        if self.profile.source.is_empty() {
+            ui.label("Chargez les sources dans l’onglet Configurateur.");
+        } else if self.profile.environment.is_empty() {
+            ui.label("Choisissez une cible pour obtenir une analyse adaptée à votre carte.");
+        } else {
+            ui.label(format!("Cible sélectionnée : {}", self.profile.environment));
+        }
+        let ready = !self.profile.source.is_empty() && !self.expert_model.trim().is_empty()
+            && !self.expert_question.trim().is_empty();
+        if ui.add_enabled(ready, egui::Button::new("Rechercher dans les sources")).clicked() {
+            let profile = self.profile.clone();
+            let model = self.expert_model.clone();
+            let question = self.expert_question.clone();
+            self.expert_report = None;
+            self.start(move |tx| {
+                let report = expert::investigate(profile, &model, &question)?;
+                let _ = tx.send(Event::Expert(report));
+                Ok("Recherche terminée.".into())
+            });
+            self.status = "Recherche dans MeshCore avec Ollama…".into();
+        }
+        if let Some(report) = self.expert_report.as_ref().filter(|report| {
+            report.source == self.profile.source && report.target == self.profile.environment
+                && report.version == self.profile.version
+        }) {
+            section(ui, "Analyse des résultats");
+            ui.label(&report.question);
+            ui.label(format!("Mots-clés : {}", report.terms.join(", ")));
+            match &report.analysis {
+                Ok(analysis) => { ui.label(analysis); }
+                Err(error) => { ui.label(format!("Synthèse indisponible : {error} Les extraits restent consultables.")); }
+            }
+            for (index, excerpt) in report.excerpts.iter().enumerate() {
+                ui.collapsing(format!("[{}] {} · lignes {}–{}", index + 1, excerpt.path.display(), excerpt.first_line, excerpt.last_line), |ui| {
+                    ui.monospace(&excerpt.text);
+                });
+            }
+        }
+    }
+
     fn community(ui: &mut egui::Ui) {
         ui.heading("Demandes de la communauté");
         ui.label("Sources consultées le 5 novembre 2026. Ce relevé est ciblé, pas exhaustif.");
@@ -661,7 +721,7 @@ impl eframe::App for Studio {
                 ui.add_space(10.0);
                 for (i, label) in [(0, "Configurateur"), (1, "Options du firmware"), (2, "GPIO & UART"),
                     (3, "Bot & messages"), (4, "Canaux publics"), (5, "Compiler et flasher"),
-                    (7, "Logs"), (6, "Support")]
+                    (8, "Mode expert"), (7, "Logs"), (6, "Support")]
                 {
                     if ui.add_sized([174.0, 44.0], egui::Button::selectable(self.tab == i, label)).clicked() { self.tab = i; }
                 }
@@ -687,6 +747,7 @@ impl eframe::App for Studio {
                                 3 => self.bot(ui),
                                 4 => self.public_channels(ui),
                                 5 => { self.actions(ui); ui.add_space(24.0); self.builds(ui); },
+                                8 => self.expert(ui),
                                 7 => {},
                                 _ => Self::community(ui),
                             }

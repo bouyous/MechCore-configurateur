@@ -18,6 +18,7 @@ Projet indépendant : il ne s’agit pas d’un outil officiel MeshCore, Express
 - Bot météo BME280 facultatif : messages programmés, canaux publics, température, pression et minima/maxima.
 - Enregistrement, import et export de profils JSON, journal des opérations et historique des compilations.
 - Compilation dans une copie séparée des sources et transfert par PlatformIO sur un port série USB Windows, avec effacement facultatif après confirmation.
+- Mode expert avec un modèle Ollama local, pour rechercher des fonctions existantes dans les sources MeshCore et consulter les extraits qui étayent la réponse.
 
 ## Installer et lancer sous Windows
 
@@ -55,6 +56,20 @@ Le bouton de flash utilise un port série USB de type `COM3`. Les choix Bluetoot
 
 Pour une carte et un firmware compatibles OTA, suivez les procédures MeshCore pour le [transfert Wi-Fi sur ESP32](https://github.com/meshcore-dev/MeshCore/blob/main/docs/faq.md#72-q-how-to-update-esp32-based-devices-over-the-air) et le [DFU Bluetooth sur nRF52](https://github.com/meshcore-dev/MeshCore/blob/main/docs/faq.md#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app). Les formats de fichier et prérequis varient selon la carte.
 
+## Mode expert
+
+1. Installez une version récente d’[Ollama pour Windows](https://docs.ollama.com/windows). Dans PowerShell, téléchargez le modèle proposé par défaut avec `ollama pull qwen2.5-coder:3b`. Vous pouvez choisir un autre modèle de texte déjà installé.
+2. [Désactivez les fonctions cloud d’Ollama](https://docs.ollama.com/faq#how-do-i-disable-ollamas-cloud-features) et redémarrez-le. Par exemple, quittez Ollama depuis la zone de notification, puis lancez ces commandes dans une fenêtre PowerShell et laissez-la ouverte pendant la recherche.
+
+   ```powershell
+   $env:OLLAMA_NO_CLOUD = '1'
+   ollama serve
+   ```
+
+3. Chargez les sources MeshCore dans **Configurateur**, choisissez votre cible, puis ouvrez **Mode expert**. Essayez « Où se trouve la mise à jour OTA du répéteur ESP32 ? ». La réponse s’accompagne de passages identifiés par fichier et numéro de ligne.
+
+Le configurateur contacte uniquement le serveur Ollama de cet ordinateur sur `127.0.0.1:11434` et vérifie le mode local avant d’envoyer du contenu. La recherche est en lecture seule. Elle couvre les principaux dossiers de code, d’exemples, de variantes et de documentation. Le modèle peut manquer un passage ou se tromper sur la compatibilité d’une carte. Vérifiez les extraits avant d’appliquer un correctif ou d’activer une option.
+
 ## Compatibilité et limites
 
 Les modifications sont appliquées aux sources puis compilées, sans décompilation de binaires. Leur compatibilité est contrôlée pendant la préparation ; toutes les versions et toutes les cartes ne sont pas garanties. Les GPIO et le bot BME280 intégrés sont destinés aux cibles répéteur ESP32 compatibles. Un correctif Git personnalisé peut être fourni, mais ne peut pas être combiné avec ces fonctions intégrées.
@@ -90,6 +105,7 @@ clang++ -std=c++17 -DESP32 -I tests/bot_stubs tests/bot_runtime.cpp -o target/bo
 - `src/main.rs` : interface et navigation.
 - `src/firmware.rs` : profils, validation, téléchargement, modifications, compilation et flash.
 - `src/hardware.rs` : catalogue, brochage et vérification des broches.
+- `src/expert.rs` : recherche dans les sources et synthèse par Ollama local.
 - `src/atelier_bot.h` : bot embarqué facultatif.
 - `tests/` : contrôle natif C++ et ses substituts matériels ; les tests Rust se trouvent aussi dans les modules `src/`.
 
@@ -103,6 +119,6 @@ Pour contribuer, décrire le problème ou la modification, préciser la carte et
 
 ## Télécharger
 
-**[Télécharger Mesh Studio v0.1.0 pour Windows x64 (.exe)](https://github.com/bouyous/MechCore-configurateur/releases/download/v0.1.0/Mesh-Studio-v0.1.0-windows-x64.exe)**
+**[Télécharger Mesh Studio v0.2.0 pour Windows x64 (.exe)](https://github.com/bouyous/MechCore-configurateur/releases/download/v0.2.0/Mesh-Studio-v0.2.0-windows-x64.exe)**
 
-Version expérimentale. L’exécutable Windows est dépourvu de signature Authenticode. La somme SHA-256 est disponible sur la [page de la version v0.1.0](https://github.com/bouyous/MechCore-configurateur/releases/tag/v0.1.0).
+Version expérimentale. L’exécutable Windows est dépourvu de signature Authenticode. La somme SHA-256 est disponible sur la [page de la version v0.2.0](https://github.com/bouyous/MechCore-configurateur/releases/tag/v0.2.0).
