@@ -25,7 +25,7 @@ Projet indépendant : il ne s’agit pas d’un outil officiel MeshCore, Express
 
 L’exécutable pour Windows 64 bits (x64) est disponible dans la section [Télécharger](#télécharger) en bas de cette page. Lancez-le par double-clic, choisissez votre langue, puis continuez vers le configurateur. Le choix est enregistré dans `%LOCALAPPDATA%\MeshStudio\language.json`. Le bouton **Langue** dans la barre latérale permet de le changer. Les profils et compilations sont enregistrés dans `%LOCALAPPDATA%\MeshStudio`.
 
-Les catalogues intégrés couvrent les 24 langues officielles de l’UE et les langues officielles nationales des autres pays européens, dont le catalan d’Andorre, le monténégrin et le romanche de Suisse. La sélection et l’interface fonctionnent hors ligne. Les traductions automatiques peuvent être affinées. Les journaux des outils externes et les textes déjà enregistrés dans les profils gardent leur langue d’origine.
+Les catalogues intégrés couvrent les 24 langues officielles de l’UE et les langues officielles nationales des autres pays européens, dont le catalan d’Andorre, le monténégrin et le romanche de Suisse. La sélection et l’interface fonctionnent hors ligne. Les consignes de flash et d’effacement ont fait l’objet d’une relecture ciblée. Les termes anglais entre parenthèses éclairent les actions sensibles et correspondent aux noms des rôles dans la documentation MeshCore. Les journaux des outils externes et les textes déjà enregistrés dans les profils gardent leur langue d’origine.
 
 Pour télécharger les sources et compiler ou flasher un firmware, installez [Git](https://git-scm.com/install/windows) et [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html). Ajoutez `git` et `pio` au PATH, ou renseignez le chemin complet de PlatformIO dans « Compiler et flasher ». Les pilotes USB dépendent de la carte. Une connexion Internet est nécessaire pour les téléchargements.
 
@@ -123,6 +123,6 @@ Pour contribuer, décrire le problème ou la modification, préciser la carte et
 
 ## Télécharger
 
-**[Télécharger Mesh Studio v0.3.0 pour Windows x64 (.exe)](https://github.com/bouyous/MechCore-configurateur/releases/download/v0.3.0/Mesh-Studio-v0.3.0-windows-x64.exe)**
+**[Télécharger Mesh Studio v0.3.1 pour Windows x64 (.exe)](https://github.com/bouyous/MechCore-configurateur/releases/download/v0.3.1/Mesh-Studio-v0.3.1-windows-x64.exe)**
 
-Version expérimentale. L’exécutable Windows est dépourvu de signature Authenticode. La somme SHA-256 est disponible sur la [page de la version v0.3.0](https://github.com/bouyous/MechCore-configurateur/releases/tag/v0.3.0).
+Version expérimentale. L’exécutable Windows est dépourvu de signature Authenticode. La somme SHA-256 est disponible sur la [page de la version v0.3.1](https://github.com/bouyous/MechCore-configurateur/releases/tag/v0.3.1).

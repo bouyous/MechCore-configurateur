@@ -150,20 +150,49 @@ mod tests {
         let english = &catalogs["en"];
         for (code, _, _) in LANGUAGES.iter().skip(1) {
             let messages = &catalogs[*code];
-            assert_eq!(messages.len(), english.len(), "{code}");
+            assert!(messages.keys().eq(english.keys()), "catalogue keys: {code}");
             assert_ne!(
                 messages["Choisissez votre langue"], "Choisissez votre langue",
                 "{code}"
             );
             for (source, translation) in messages {
-                for index in 0..4 {
-                    let field = format!("{{{index}}}");
+                assert!(
+                    !translation.trim().is_empty() && !translation.contains('\u{fffd}'),
+                    "{code}: {source}"
+                );
+                for field in [
+                    "{0}",
+                    "{1}",
+                    "{2}",
+                    "{3}",
+                    "{temperature}",
+                    "{pression}",
+                    "{min}",
+                    "{max}",
+                    "{record_min}",
+                    "{record_max}",
+                ] {
                     assert_eq!(
-                        source.matches(&field).count(),
-                        translation.matches(&field).count(),
+                        source.matches(field).count(),
+                        translation.matches(field).count(),
                         "{code}: {source}"
                     );
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn safety_labels_keep_usb_and_the_erase_gloss() {
+        let warning = "Flash expérimental par USB. Une erreur peut effacer les données ou rendre la carte inutilisable.";
+        let erase = "Effacer l’appareil avant le transfert (perte des données)";
+        for (locale, (code, _, _)) in LANGUAGES.iter().enumerate() {
+            assert!(for_language(locale, warning).contains("USB"), "{code}");
+            if !matches!(*code, "fr" | "en") {
+                assert!(
+                    for_language(locale, erase).ends_with("(Erase device data)"),
+                    "{code}"
+                );
             }
         }
     }
