@@ -1,3 +1,4 @@
+use crate::i18n::{tr, tf};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::{Path, PathBuf}};
 use std::{io::{BufRead, BufReader}, process::{Command, Stdio}, sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
@@ -86,60 +87,60 @@ impl Default for Profile {
 }
 impl Profile {
     pub fn validate(&self) -> Result<()> {
-        if self.environment.is_empty() { return Err("Choisissez une carte après avoir chargé les sources.".into()); }
+        if self.environment.is_empty() { return Err(tr("Choisissez une carte après avoir chargé les sources.").into()); }
         if !self.environment.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
             || !self.environment.chars().all(|c| c.is_ascii_alphanumeric() || "_-.".contains(c)) {
-            return Err("Identifiant de carte invalide.".into());
+            return Err(tr("Identifiant de carte invalide.").into());
         }
         if self.battery && (!(2500..=4500).contains(&self.low_mv) || self.resume_mv <= self.low_mv + 100 || self.resume_mv > 4500 || !(10..=3600).contains(&self.interval)) {
-            return Err("Seuils invalides : 2,5 à 4,5 V, reprise > seuil bas + 0,1 V ; intervalle de 10 à 3600 s.".into());
+            return Err(tr("Seuils invalides : 2,5 à 4,5 V, reprise > seuil bas + 0,1 V ; intervalle de 10 à 3600 s.").into());
         }
         if self.public_telemetry && !self.channels.contains(&true)
             && !self.gpio.iter().any(|g| matches!(g.mode, PinMode::Input | PinMode::PullUp) && g.visibility == Visibility::Public) {
-            return Err("Sélectionnez au moins un canal ou un GPIO public.".into());
+            return Err(tr("Sélectionnez au moins un canal ou un GPIO public.").into());
         }
         if !self.gpio.is_empty() {
             if !self.environment.to_lowercase().ends_with("_repeater") || !self.pins_checked {
-                return Err("GPIO : cible ESP32 répéteur requise ; vérifiez les broches libres sur le schéma et confirmez le câblage.".into());
+                return Err(tr("GPIO : cible ESP32 répéteur requise ; vérifiez les broches libres sur le schéma et confirmez le câblage.").into());
             }
-            if !self.patch.is_empty() { return Err("GPIO et correctif libre ne peuvent pas être combinés : conflits non vérifiables.".into()); }
-            if self.gpio.len() > 4 { return Err("Quatre GPIO au maximum par installation.".into()); }
+            if !self.patch.is_empty() { return Err(tr("GPIO et correctif libre ne peuvent pas être combinés : conflits non vérifiables.").into()); }
+            if self.gpio.len() > 4 { return Err(tr("Quatre GPIO au maximum par installation.").into()); }
             for (i, g) in self.gpio.iter().enumerate() {
                 if g.name.trim().is_empty() || g.pin > 48 || g.channel < 100 || g.channel > 103 {
-                    return Err("GPIO : nom requis, broche 0–48 et canal réservé 100–103.".into());
+                    return Err(tr("GPIO : nom requis, broche 0–48 et canal réservé 100–103.").into());
                 }
                 if self.gpio[..i].iter().any(|other| other.pin == g.pin || other.channel == g.channel) {
-                    return Err("Chaque GPIO et chaque canal doivent être uniques.".into());
+                    return Err(tr("Chaque GPIO et chaque canal doivent être uniques.").into());
                 }
                 if matches!(g.mode, PinMode::Input | PinMode::PullUp) && g.visibility == Visibility::Public && !self.public_telemetry {
-                    return Err("Activez la télémétrie publique pour partager un GPIO publiquement.".into());
+                    return Err(tr("Activez la télémétrie publique pour partager un GPIO publiquement.").into());
                 }
             }
         }
         if self.bot.enabled {
             let b = &self.bot;
             if !self.environment.to_lowercase().ends_with("_repeater") || !self.pins_checked || !self.patch.is_empty() {
-                return Err("Bot météo : répéteur ESP32, câblage confirmé et aucun correctif libre requis.".into());
+                return Err(tr("Bot météo : répéteur ESP32, câblage confirmé et aucun correctif libre requis.").into());
             }
             if b.sda > 48 || b.scl > 48 || b.sda == b.scl || ![0x76, 0x77].contains(&b.address)
                 || self.gpio.iter().any(|g| g.pin == b.sda || g.pin == b.scl) {
-                return Err("BME280 : GPIO SDA/SCL distincts et libres (0–48), adresse 0x76 ou 0x77.".into());
+                return Err(tr("BME280 : GPIO SDA/SCL distincts et libres (0–48), adresse 0x76 ou 0x77.").into());
             }
             if !(-720..=840).contains(&b.utc_offset) || b.channels.is_empty() || b.channels.len() > 8 || b.messages.is_empty() || b.messages.len() > 8 {
-                return Err("Bot : 1 à 8 canaux et messages, décalage UTC de −720 à +840 minutes.".into());
+                return Err(tr("Bot : 1 à 8 canaux et messages, décalage UTC de −720 à +840 minutes.").into());
             }
             for (i, c) in b.channels.iter().enumerate() {
                 if c.name.trim().is_empty() || c.name.len() > 48 || !c.hashtag.starts_with('#') || c.hashtag.len() < 2 || c.hashtag.len() > 32
                     || !c.hashtag[1..].chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-')
                     || b.channels[..i].iter().any(|other| other.hashtag == c.hashtag) {
-                    return Err("Canal : nom requis (48 octets max), hashtag unique comme #meteo (minuscules, chiffres, _ ou -, 32 caractères max).".into());
+                    return Err(tr("Canal : nom requis (48 octets max), hashtag unique comme #meteo (minuscules, chiffres, _ ou -, 32 caractères max).").into());
                 }
             }
             for m in &b.messages {
                 let rendered = render_bot_message(&m.text);
                 if m.hour > 23 || m.minute > 59 || m.channel >= b.channels.len() || m.text.trim().is_empty()
                     || m.text.chars().any(char::is_control) || rendered.len() > 120 || rendered.contains(['{', '}']) {
-                    return Err("Message : horaire et canal valides, texte court (120 octets après substitution), variables connues uniquement.".into());
+                    return Err(tr("Message : horaire et canal valides, texte court (120 octets après substitution), variables connues uniquement.").into());
                 }
             }
         }
@@ -161,7 +162,7 @@ pub fn save<T: Serialize>(path: &Path, value: &T) -> Result<()> {
 }
 pub fn environments(source: &Path) -> Result<Vec<String>> {
     let mut files = vec![source.join("platformio.ini")];
-    let variants = fs::read_dir(source.join("variants")).map_err(|e| format!("Sources MeshCore incomplètes : {e}"))?;
+    let variants = fs::read_dir(source.join("variants")).map_err(|e| tf("Sources MeshCore incomplètes : {0}", &[&(e).to_string()]))?;
     for entry in variants { files.push(entry.map_err(|e| e.to_string())?.path().join("platformio.ini")); }
     let mut names = Vec::new();
     for path in files {
@@ -173,7 +174,7 @@ pub fn environments(source: &Path) -> Result<Vec<String>> {
         }
     }
     names.sort(); names.dedup();
-    if names.is_empty() { return Err("Aucune cible matérielle trouvée dans ces sources.".into()); }
+    if names.is_empty() { return Err(tr("Aucune cible matérielle trouvée dans ces sources.").into()); }
     Ok(names)
 }
 
@@ -251,26 +252,26 @@ fn tool_path(executable: &str) -> Result<PathBuf> {
     if path.is_absolute() {
         #[cfg(windows)]
         if !path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe")) {
-            return Err("Sélectionnez un exécutable .exe installé localement.".into());
+            return Err(tr("Sélectionnez un exécutable .exe installé localement.").into());
         }
         return path.is_file().then(|| path.to_owned())
-            .ok_or_else(|| format!("Exécutable introuvable : {executable}"));
+            .ok_or_else(|| tf("Exécutable introuvable : {0}", &[&(executable).to_string()]));
     }
     if !matches!(executable, "git" | "pio") {
-        return Err("Indiquez le chemin absolu de PlatformIO ou utilisez pio depuis le PATH.".into());
+        return Err(tr("Indiquez le chemin absolu de PlatformIO ou utilisez pio depuis le PATH.").into());
     }
     let name = format!("{executable}{}", std::env::consts::EXE_SUFFIX);
     std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
         .filter(|dir| dir.is_absolute())
         .map(|dir| dir.join(&name))
         .find(|file| file.is_file())
-        .ok_or_else(|| format!("{name} est introuvable dans le PATH."))
+        .ok_or_else(|| tf("{0} est introuvable dans le PATH.", &[&(name).to_string()]))
 }
 
 pub fn powershell() -> Result<Command> {
-    let root = std::env::var_os("SystemRoot").ok_or("Dossier système Windows introuvable.")?;
+    let root = std::env::var_os("SystemRoot").ok_or(tr("Dossier système Windows introuvable."))?;
     let path = PathBuf::from(root).join("System32/WindowsPowerShell/v1.0/powershell.exe");
-    command(path.to_str().ok_or("Chemin de PowerShell invalide.")?)
+    command(path.to_str().ok_or(tr("Chemin de PowerShell invalide."))?)
 }
 
 pub(crate) fn command(executable: &str) -> Result<Command> {
@@ -282,7 +283,7 @@ pub(crate) fn command(executable: &str) -> Result<Command> {
 }
 pub fn run(mut cmd: Command, tx: &Sender<Event>) -> Result<String> {
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
-    let mut child = cmd.spawn().map_err(|e| format!("Impossible de démarrer l'outil : {e}. Vérifiez Git / PlatformIO dans les réglages."))?;
+    let mut child = cmd.spawn().map_err(|e| tf("Impossible de démarrer l'outil : {0}. Vérifiez Git / PlatformIO dans les réglages.", &[&(e).to_string()]))?;
     let err = child.stderr.take().unwrap();
     let sender = tx.clone();
     let errors = std::thread::spawn(move || {
@@ -301,7 +302,7 @@ pub fn run(mut cmd: Command, tx: &Sender<Event>) -> Result<String> {
     }
     let status = child.wait().map_err(|e| e.to_string())?;
     let tail = errors.join().unwrap_or_default();
-    if !status.success() { return Err(format!("L'outil a échoué ({status}).\n{tail}")); }
+    if !status.success() { return Err(tf("L'outil a échoué ({0}).\n{1}", &[&(status).to_string(), &(tail).to_string()])); }
     Ok(output)
 }
 fn stamp() -> String { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos().to_string() }
@@ -312,17 +313,17 @@ pub fn sync_versions(tx: &Sender<Event>) -> Result<String> {
     let mut cmd = powershell()?;
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
     let output = run(cmd, tx)?;
-    let versions: Vec<String> = serde_json::from_str(output.trim_start_matches('\u{feff}').trim()).map_err(|e| format!("Réponse GitHub invalide : {e}"))?;
-    if versions.is_empty() { return Err("GitHub n'a renvoyé aucune version.".into()); }
+    let versions: Vec<String> = serde_json::from_str(output.trim_start_matches('\u{feff}').trim()).map_err(|e| tf("Réponse GitHub invalide : {0}", &[&(e).to_string()]))?;
+    if versions.is_empty() { return Err(tr("GitHub n'a renvoyé aucune version.").into()); }
     save(&root().join("versions.json"), &versions)?;
     let n = versions.len();
     let _ = tx.send(Event::Versions(versions));
-    Ok(format!("{n} versions synchronisées depuis le dépôt officiel."))
+    Ok(tf("{0} versions synchronisées depuis le dépôt officiel.", &[&(n).to_string()]))
 }
 pub fn fetch_source(version: &str, tx: &Sender<Event>) -> Result<String> {
     if release_parts(version).is_none() || !version.starts_with(|c: char| c.is_ascii_alphanumeric())
         || !version.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)) {
-        return Err("Sélectionnez une version officielle.".into());
+        return Err(tr("Sélectionnez une version officielle.").into());
     }
     let dest = root().join("sources").join(stamp());
     fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -332,7 +333,7 @@ pub fn fetch_source(version: &str, tx: &Sender<Event>) -> Result<String> {
     run(cmd, tx)?;
     let envs = environments(&dest)?;
     let _ = tx.send(Event::Sources(dest, envs));
-    Ok("Sources chargées. Choisissez la cible de votre appareil.".into())
+    Ok(tr("Sources chargées. Choisissez la cible de votre appareil.").into())
 }
 fn copy_sources(from: &Path, to: &Path) -> Result<()> {
     fs::create_dir(to).map_err(|e| e.to_string())?;
@@ -346,10 +347,10 @@ fn copy_sources(from: &Path, to: &Path) -> Result<()> {
         {
             use std::os::windows::fs::MetadataExt;
             if metadata.file_attributes() & 0x400 != 0 {
-                return Err("Sources avec point de réanalyse Windows (lien ou jonction) : copie refusée.".into());
+                return Err(tr("Sources avec point de réanalyse Windows (lien ou jonction) : copie refusée.").into());
             }
         }
-        if ty.is_symlink() { return Err("Sources avec lien symbolique : import refusé pour protéger les fichiers externes.".into()); }
+        if ty.is_symlink() { return Err(tr("Sources avec lien symbolique : import refusé pour protéger les fichiers externes.").into()); }
         let dest = to.join(name);
         if ty.is_dir() { copy_sources(&entry.path(), &dest)?; }
         else if ty.is_file() { fs::copy(entry.path(), dest).map_err(|e| e.to_string())?; }
@@ -357,7 +358,7 @@ fn copy_sources(from: &Path, to: &Path) -> Result<()> {
     Ok(())
 }
 fn replace_once(text: &str, anchor: &str, replacement: &str) -> Result<String> {
-    if text.matches(anchor).count() != 1 { return Err(format!("Modification incompatible avec cette version : point d'insertion absent ou ambigu ({anchor}). Aucun firmware créé.")); }
+    if text.matches(anchor).count() != 1 { return Err(tf("Modification incompatible avec cette version : point d'insertion absent ou ambigu ({0}). Aucun firmware créé.", &[&(anchor).to_string()])); }
     Ok(text.replacen(anchor, replacement, 1))
 }
 fn write_text(path: &Path, text: &str) -> Result<()> { fs::write(path, text).map_err(|e| e.to_string()) }
@@ -459,10 +460,10 @@ fn patch_sources(work: &Path, p: &Profile) -> Result<()> {
             write_text(&path, &text)?;
             found = true;
         }
-        if !found { return Err("Cette version ne possède pas de point d'insertion batterie compatible.".into()); }
+        if !found { return Err(tr("Cette version ne possède pas de point d'insertion batterie compatible.").into()); }
     }
     if p.public_telemetry {
-        if !p.environment.to_lowercase().contains("repeater") { return Err("La télémétrie publique intégrée est actuellement compatible avec le rôle répéteur uniquement. Un correctif personnalisé peut adapter un autre rôle.".into()); }
+        if !p.environment.to_lowercase().contains("repeater") { return Err(tr("La télémétrie publique intégrée est actuellement compatible avec le rôle répéteur uniquement. Un correctif personnalisé peut adapter un autre rôle.").into()); }
         let path = work.join("examples/simple_repeater/MyMesh.cpp");
         let text = fs::read_to_string(&path).map_err(|e| e.to_string())?.replace("\r\n", "\n");
         let text = replace_once(&text, "perm_mask = 0x00;", "perm_mask = 0xFF;")?;
@@ -504,19 +505,19 @@ pub fn build(p: Profile, tx: &Sender<Event>) -> Result<String> {
     crate::hardware::validate_pins(&p, &crate::hardware::local(&p))?;
     let source = PathBuf::from(&p.source);
     let envs = environments(&source)?;
-    if !envs.contains(&p.environment) { return Err("Cette cible n'existe pas dans les sources chargées.".into()); }
+    if !envs.contains(&p.environment) { return Err(tr("Cette cible n'existe pas dans les sources chargées.").into()); }
     let id = stamp();
     // Sources supplied by the user stay untouched; every build gets an isolated copy.
     let canonical = source.canonicalize().map_err(|e| e.to_string())?;
     let builds = root().join("builds");
     fs::create_dir_all(&builds).map_err(|e| e.to_string())?;
     if builds.canonicalize().map_err(|e| e.to_string())?.starts_with(&canonical) {
-        return Err("Choisissez un dossier de sources distinct du dossier de travail de l'application.".into());
+        return Err(tr("Choisissez un dossier de sources distinct du dossier de travail de l'application.").into());
     }
     let build_dir = builds.join(&id);
     fs::create_dir(&build_dir).map_err(|e| e.to_string())?;
     let work = build_dir.join("sources");
-    let _ = tx.send(Event::Log("Copie isolée des sources et vérification des modifications…".into()));
+    let _ = tx.send(Event::Log(tr("Copie isolée des sources et vérification des modifications…").into()));
     copy_sources(&canonical, &work)?;
     patch_sources(&work, &p)?;
     if !p.patch.is_empty() {
@@ -539,16 +540,16 @@ pub fn build(p: Profile, tx: &Sender<Event>) -> Result<String> {
             }
         }
     }
-    if !artifacts.iter().any(|a| a.starts_with("firmware")) { return Err("La compilation n'a produit aucun firmware exploitable. Consultez le journal.".into()); }
+    if !artifacts.iter().any(|a| a.starts_with("firmware")) { return Err(tr("La compilation n'a produit aucun firmware exploitable. Consultez le journal.").into()); }
     let receipt = Build { id, profile: p, work, output: output.clone(), artifacts };
     save(&output.join("build.json"), &receipt)?;
     save(&root().join("last_build.json"), &receipt)?;
     let _ = tx.send(Event::Built(receipt));
-    Ok("Firmware compilé. Les fichiers et le profil sont disponibles dans Mes compilations.".into())
+    Ok(tr("Firmware compilé. Les fichiers et le profil sont disponibles dans Mes compilations.").into())
 }
 
 fn apply_patch(work: &Path, patch: &Path, tx: &Sender<Event>) -> Result<()> {
-    let parent = work.parent().ok_or("Dossier de compilation invalide.")?;
+    let parent = work.parent().ok_or(tr("Dossier de compilation invalide."))?;
     let mut cmd = command("git")?;
     // Git must apply relative to the copied sources, even if the configurator is in a Git clone.
     cmd.current_dir(work).env("GIT_CEILING_DIRECTORIES", parent)
@@ -577,31 +578,31 @@ pub fn flash(b: &Build, port: &str, erase: bool, tx: &Sender<Event>) -> Result<S
         .and_then(|_| port.get(3..));
     if !port_number.is_some_and(|number| !number.is_empty() && number.bytes().all(|byte| byte.is_ascii_digit())
         && number.parse::<u16>().is_ok_and(|value| value > 0)) {
-        return Err("Indiquez un port série Windows, par exemple COM3.".into());
+        return Err(tr("Indiquez un port série Windows, par exemple COM3.").into());
     }
     if b.id.is_empty() || !b.id.bytes().all(|byte| byte.is_ascii_digit()) {
-        return Err("Identifiant de compilation invalide. Recompilez le firmware.".into());
+        return Err(tr("Identifiant de compilation invalide. Recompilez le firmware.").into());
     }
     let p = &b.profile;
     p.validate()?;
     let build_dir = root().join("builds").join(&b.id);
     let work = build_dir.join("sources");
     if b.work != work || b.output != build_dir.join("firmware") || !work.join("platformio.ini").is_file() {
-        return Err("Les sources de cette compilation ne sont plus disponibles. Recompilez le firmware.".into());
+        return Err(tr("Les sources de cette compilation ne sont plus disponibles. Recompilez le firmware.").into());
     }
     let compiled = work.join(".pio/build").join(&p.environment);
     if !b.artifacts.iter().any(|name| name.starts_with("firmware")) {
-        return Err("Le reçu ne contient aucun firmware. Recompilez le firmware.".into());
+        return Err(tr("Le reçu ne contient aucun firmware. Recompilez le firmware.").into());
     }
     for name in &b.artifacts {
         let path = Path::new(name);
         if path.file_name() != Some(path.as_os_str()) || name.contains(':') {
-            return Err("Nom de fichier de firmware invalide. Recompilez le firmware.".into());
+            return Err(tr("Nom de fichier de firmware invalide. Recompilez le firmware.").into());
         }
         let original = fs::read(b.output.join(path)).map_err(|e| e.to_string())?;
         let current = fs::read(compiled.join(path)).map_err(|e| e.to_string())?;
         if original.is_empty() || current != original {
-            return Err("Un fichier de compilation a changé. Recompilez avant le flash.".into());
+            return Err(tr("Un fichier de compilation a changé. Recompilez avant le flash.").into());
         }
     }
     let mut cmd = platformio(p, &work)?;
@@ -612,7 +613,7 @@ pub fn flash(b: &Build, port: &str, erase: bool, tx: &Sender<Event>) -> Result<S
         run(erase_cmd, tx)?;
     }
     run(cmd, tx)?;
-    Ok("Transfert terminé par PlatformIO. Vérifiez le démarrage de l'appareil.".into())
+    Ok(tr("Transfert terminé par PlatformIO. Vérifiez le démarrage de l'appareil.").into())
 }
 
 #[cfg(test)]

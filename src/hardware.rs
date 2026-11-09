@@ -1,3 +1,4 @@
+use crate::i18n::{tr, tf};
 use crate::firmware::{self, Event, Profile, Result};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::{Path, PathBuf}, sync::mpsc::Sender};
@@ -52,9 +53,9 @@ impl Pin { pub fn available(&self) -> bool { self.note.is_empty() } }
 pub fn validate_pins(profile: &Profile, pinout: &Pinout) -> Result<()> {
     let check = |number: u8, output: bool| -> Result<()> {
         let pin = pinout.pins.iter().find(|p| p.number == number)
-            .ok_or_else(|| format!("GPIO {number} : brochage absent pour cette carte. Vérifiez les sources officielles."))?;
+            .ok_or_else(|| tf("GPIO {0} : brochage absent pour cette carte. Vérifiez les sources officielles.", &[&(number).to_string()]))?;
         if !pin.available() || output && !pin.output {
-            return Err(format!("GPIO {number} indisponible pour cet usage : {}. Choisissez une autre ligne.", if pin.note.is_empty() { "entrée seule" } else { &pin.note }));
+            return Err(tf("GPIO {0} indisponible pour cet usage : {1}. Choisissez une autre ligne.", &[&number.to_string(), if pin.note.is_empty() { tr("entrée seule") } else { &pin.note }]));
         }
         Ok(())
     };
@@ -82,19 +83,19 @@ pub fn variant_files(source: &Path, environment: &str) -> Result<Vec<PathBuf>> {
             return Ok(files);
         }
     }
-    Err("Brochage introuvable dans les variantes : consulter le schéma constructeur.".into())
+    Err(tr("Brochage introuvable dans les variantes : consulter le schéma constructeur.").into())
 }
 pub fn local(profile: &Profile) -> Pinout {
     let files = variant_files(Path::new(&profile.source), &profile.environment).unwrap_or_default();
     let text = files.iter().filter_map(|p| fs::read_to_string(p).ok()).collect::<Vec<_>>().join("\n");
-    analyze(&text, "Sources de la version sélectionnée · analyse conservatrice de toute la variante")
+    analyze(&text, tr("Sources de la version sélectionnée · analyse conservatrice de toute la variante"))
 }
 pub fn refresh(profile: &Profile, tx: &Sender<Event>) -> Result<String> {
     let source = Path::new(&profile.source);
     let files = variant_files(source, &profile.environment)?;
     // Download data only; source text from the Internet is never executed.
     let tag = if profile.version == "Sources locales" { "main" } else { &profile.version };
-    if tag.is_empty() || !tag.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) { return Err("Version officielle requise pour consulter le brochage en ligne.".into()); }
+    if tag.is_empty() || !tag.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) { return Err(tr("Version officielle requise pour consulter le brochage en ligne.").into()); }
     let mut texts = Vec::new();
     for path in files {
         let relative = path.strip_prefix(source).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/");
@@ -102,13 +103,13 @@ pub fn refresh(profile: &Profile, tx: &Sender<Event>) -> Result<String> {
         let mut cmd = firmware::powershell()?;
         cmd.env("MESH_PIN_URL", url).args(["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; (Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri $env:MESH_PIN_URL).Content"]);
         let output = cmd.output().map_err(|e| e.to_string())?;
-        if !output.status.success() { return Err("Consultation Internet impossible. Brochage local conservé ; utilisez les liens constructeur.".into()); }
-        if output.stdout.len() > 1_000_000 { return Err("Document de brochage trop volumineux.".into()); }
+        if !output.status.success() { return Err(tr("Consultation Internet impossible. Brochage local conservé ; utilisez les liens constructeur.").into()); }
+        if output.stdout.len() > 1_000_000 { return Err(tr("Document de brochage trop volumineux.").into()); }
         texts.push(String::from_utf8_lossy(&output.stdout).into_owned());
     }
-    let pinout = analyze(&texts.join("\n"), &format!("GitHub officiel MeshCore · {tag} · consulté en ligne"));
+    let pinout = analyze(&texts.join("\n"), &tf("GitHub officiel MeshCore · {0} · consulté en ligne", &[&(tag).to_string()]));
     let _ = tx.send(Event::Pinout(pinout));
-    Ok("Brochage officiel consulté sur Internet. Vérifiez les connecteurs sur le schéma constructeur.".into())
+    Ok(tr("Brochage officiel consulté sur Internet. Vérifiez les connecteurs sur le schéma constructeur.").into())
 }
 
 pub fn analyze(text: &str, origin: &str) -> Pinout {
@@ -154,7 +155,7 @@ pub fn analyze(text: &str, origin: &str) -> Pinout {
             "RP2040" if number >= 23 => "Périphérique interne possible · vérifier le schéma",
             _ => "",
         };
-        Pin { number, output: !(chip == "ESP32" && number >= 34 || chip == "ESP32-S2" && number == 46), note: note.into() }
+        Pin { number, output: !(chip == "ESP32" && number >= 34 || chip == "ESP32-S2" && number == 46), note: tr(note).into() }
     }).collect();
     // shortcut: macros and conditional variants are over-reserved; a verified board schematic is needed to certify exposed free pins.
     let mut definitions = Vec::new();
